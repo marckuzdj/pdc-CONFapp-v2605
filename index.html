@@ -311,7 +311,7 @@
             <!-- 🌟 BOTÕES REMOVIDOS DAQUI PARA LIMPEZA VISUAL CONFORME O PRINT -->
             <!-- Campo: Motivo da Retenção -->
             <div>
-                <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Motivo da Retenção:</label>
+                <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Motivo:</label>
                 <select id="oc_motivo_faltante" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: white; box-sizing: border-box;">
                     <option value="">Selecione o motivo...</option>
                     <option value="Mercadoria Avariada">Mercadoria Avariada</option>
@@ -346,7 +346,7 @@
 
             <!-- Painel Multi-seleção de Pedidos Faltantes -->
             <div>
-                <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Selecione os pedidos afetados:</label>
+                <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Pedidos afetados (Last Mile):</label>
                 <div id="oc_container_fornec_faltante" style="border: 1px solid #dcdcdc; padding: 10px; border-radius: 4px; max-height: 150px; overflow-y: auto; background: #fafafa; box-sizing: border-box;">
                     <!-- Preenchido via API dinamicamente -->
                 </div>
@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v1</h3>
+    <h3>Passagem de Carga | Conferência v2</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -2598,7 +2598,7 @@ async function abrirNovaTelaOcorrenciaFaltantes() {
     const romaneioVal = document.getElementById("romaneio").value;
     
     const titulo = document.getElementById("tituloOcorrenciaFaltantes");
-    if(titulo) titulo.innerText = "Faltantes - " + romaneioVal;
+    if(titulo) titulo.innerText = "Conferência Parcial - " + romaneioVal;
     
     // Reseta todos os campos físicos do formulário para garantir limpeza de cache
     if(document.getElementById("oc_motivo_faltante")) document.getElementById("oc_motivo_faltante").value = "";
@@ -2725,9 +2725,9 @@ document.addEventListener("DOMContentLoaded", function() {
     if (combo && lbl) {
         combo.addEventListener("change", function() {
             if (["Mercadoria Avariada", "Lacre Violado", "Embalagem Aberta"].includes(this.value)) {
-                lbl.innerHTML = 'Foto da Evidência/Avaria: <span style="color:#dc3545;font-weight:bold;">(* Obrigatório)</span>';
+                lbl.innerHTML = 'Foto Evidência: <span style="color:#dc3545;font-weight:bold;">(* Obrigatório)</span>';
             } else {
-                lbl.innerHTML = 'Foto da Evidência/Avaria: <span style="color:#6c757d;font-weight:normal;">(Opcional)</span>';
+                lbl.innerHTML = 'Foto Evidência: <span style="color:#6c757d;font-weight:normal;">(Opcional)</span>';
             }
         });
     }
