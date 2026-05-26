@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v8</h3>
+    <h3>Passagem de Carga | Conferência v9</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -1565,11 +1565,12 @@ async function enviarDadosFinais() {
             ? `Conferencia Finalizada ${sufixoDispositivo}` 
             : `Conferencia Parcial ${sufixoDispositivo}`;
 
+        // 🌟 PAYLOAD ESTRUTURADO ORIGINAL (Preservado)
         const payload = {
             action: "finalizarLote",
             romaneio: romaneioAtual,
             usuario: document.getElementById("usuario").value,
-            codigos: typeof codigosLidos !== 'undefined' ? codigosLidos : [],
+            codigos: typeof codigosLidos !== 'undefined' ? JSON.stringify(codigosLidos) : "[]", // Stringifica o array para tráfego seguro x-www-form
             geo: window.lastGeo || "0,0",
             assinatura: assinaturaBase64,
             conferencia: new Date().toLocaleString("pt-BR"),
@@ -1578,22 +1579,31 @@ async function enviarDadosFinais() {
             status_lote: statusProgresso 
         };
 
+        // =========================================================================
+        // 🚨 CORREÇÃO CIRÚRGICA: CONVERSÃO DE FORMATO PARA EVITAR O 'FAILED TO FETCH'
+        // =========================================================================
+        // Transforma o objeto JSON plano em uma estrutura de formulário codificada (URLSearchParams)
+        // igual ao formato que funcionou com sucesso no modal de ocorrências.
+        // =========================================================================
+        const corpoFormularioFinal = new URLSearchParams();
+        Object.keys(payload).forEach(key => {
+            corpoFormularioFinal.append(key, payload[key]);
+        });
+
         const response = await fetch(urlSheets, {
             method: 'POST',
-            body: JSON.stringify(payload)
+            body: corpoFormularioFinal,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
 
         const result = await response.json();
 
         if (result.success) {
-            // 🚨 ADIADO: Remoção do bloco que limpava o cache local (dadosCompletos) e reconstruía o select prematuramente.
-            // Agora a lista aguarda congelada a decisão final do usuário no modal de ocorrência.
-
             // Interceptador de ocorrências condicional (Mantido seu fluxo padrão)
             setTimeout(() => {
                 romaneioSendoFinalizado = romaneioAtual; 
                 
-                // 🌟 CIRÚRGICO: Se viermos do modal de faltantes, pula a pergunta de ocorrência e encerra direto
+                // Se viermos do modal de faltantes, pula a pergunta de ocorrência e encerra direto
                 if (typeof loteFechadoComFaltantes !== "undefined" && loteFechadoComFaltantes === true) {
                     if (typeof dadosCompletos !== 'undefined') {
                         dadosCompletos = dadosCompletos.filter(r => r.Romaneio !== romaneioAtual && r.romaneio !== romaneioAtual && r.id !== romaneioAtual);
@@ -1603,8 +1613,9 @@ async function enviarDadosFinais() {
                     // Exibe a frase customizada requisitada para a conferência parcial com faltas
                     alert("⚠️ Intercorrencia lançada para conferencia parcial");
                     
-                    // Reseta os sinalizadores de estado globais
+                    // Reseta os sinalizadores de estado globais e destrava o formulário por completo
                     loteFechadoComFaltantes = false;
+                    if (typeof enviandoDados !== 'undefined') enviandoDados = false; // Destrava a flag de loop
                     resetarInterface();
                     return;
                 }
@@ -1613,7 +1624,6 @@ async function enviarDadosFinais() {
                 if (modalPerg) {
                     modalPerg.classList.remove("hidden");
                     modalPerg.style.display = "flex";
-                    // Interface permanece congelada com o botão cinza enquanto o modal está ativo
                 } else {
                     // Fallback caso não exista modal: atualiza aqui por segurança
                     if (typeof dadosCompletos !== 'undefined') {
@@ -1621,14 +1631,10 @@ async function enviarDadosFinais() {
                     }
                     if (typeof atualizarComboboxInterface === 'function') atualizarComboboxInterface();
                     
-                    // Alerta em fallback respeitando o contexto
-                    if (typeof loteFechadoComFaltantes !== "undefined" && loteFechadoComFaltantes === true) {
-                        alert("⚠️ Intercorrencia lançada para conferencia parcial");
-                    } else {
-                        alert("Lote finalizado com sucesso!");
-                    }
+                    alert("Lote finalizado com sucesso!");
                     
                     loteFechadoComFaltantes = false;
+                    if (typeof enviandoDados !== 'undefined') enviandoDados = false; // Destrava a flag de loop
                     resetarInterface();
                 }
             }, 600);
@@ -1641,11 +1647,12 @@ async function enviarDadosFinais() {
         console.error("Erro no envio:", e);
         alert("❌ Falha ao enviar: " + e.message);
         
+        // REVERTE AS TRAVAS SE HOUVER ERRO DE REDE (Destrava o formulário)
         if (typeof enviandoDados !== 'undefined') enviandoDados = false;
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = "✅ Confirmar e Enviar";
-            btn.style.backgroundColor = ""; // Restaura cor original se falhar antes do modal
+            btn.style.backgroundColor = ""; 
         }
         if (areaAssinatura) {
             areaAssinatura.style.opacity = "1";
@@ -1653,6 +1660,7 @@ async function enviarDadosFinais() {
         }
     }
 }
+
 
 
 
