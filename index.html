@@ -2709,7 +2709,8 @@ async function enviarOcorrenciaFaltanteFluxo() {
         const result = await response.json();
         if (result.success) {
             fecharModalFaltantes();
-            alert("🎉 Lote finalizado com sucesso!");
+            //alert("🎉 Lote finalizado com sucesso!");
+            avancarParaAssinaturaParalela();
             if (typeof resetarInterface === "function") resetarInterface();
         } else {
             alert("❌ Erro no servidor: " + result.error);
