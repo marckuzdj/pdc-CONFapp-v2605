@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v3</h3>
+    <h3>Passagem de Carga | Conferência v4</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -2739,40 +2739,69 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 
-    // Variable global para controlar o contexto da mensagem de sucesso na tela
+// Variáveis globais de contexto e controle
 let loteFechadoComFaltantes = false;
+let romaneioParaleloCongelado = ""; // 🌟 NOVO: Guarda o ID de forma blindada contra resets de tela
 
-// =========================================================================
-// 🌟 PASSO A: PONTE DE TRANSIÇÃO APÓS O SUCESSO DO MODAL DE FALTANTES
-// =========================================================================
-function avancarParaAssinaturaParalela() {
-    // 1. Fecha o modal de faltantes limpando a tela do usuário
-    fecharModalFaltantes();
-    
-    // Sinaliza o contexto de conferência parcial com faltas para o alert final
+// Passo A: Inicia a esteira paralela e congela o ID do romaneio ativo na memória
+async function iniciarFluxoParaleloFaltantes() {
     loteFechadoComFaltantes = true;
     
-    // 2. Captura os elementos nativos da tela principal para abrir o canvas de assinatura
+    // 🌟 CIRÚRGICO: Salva o número do romaneio na memória global ANTES de qualquer reset acontecer
+    const campoRom = document.getElementById("romaneio");
+    if (campoRom) {
+        romaneioParaleloCongelado = campoRom.value.toString().trim().toUpperCase();
+        console.log("🔒 ID do Romaneio congelado com sucesso para a esteira parcial:", romaneioParaleloCongelado);
+    }
+    
+    // Abre o modal de faltantes nativo do seu sistema
+    if (typeof abrirNovaTelaOcorrenciaFaltantes === "function") {
+        await abrirNovaTelaOcorrenciaFaltantes();
+    }
+    
+    // Automatização das marcações travadas
+    setTimeout(function() {
+        const checkboxesFaltantes = document.querySelectorAll('input[name="oc_itens_faltantes_sel"]');
+        checkboxesFaltantes.forEach(function(cb) {
+            cb.checked = true;
+            cb.disabled = true;
+            if (cb.parentElement) cb.parentElement.style.color = "#666";
+        });
+        const container = document.getElementById("oc_container_fornec_faltante");
+        if (container) container.style.border = "1px dashed #8A05BE";
+    }, 800);
+}
+
+// Passo B: Ponte de transição após o envio do modal de faltantes administrativo
+function avancarParaAssinaturaParalela() {
+    fecharModalFaltantes();
+    
     const btnOriginal = document.querySelector("button[onclick='finalizarLote()']");
     const areaAssinaturaOriginal = document.getElementById("areaAssinatura");
     
-    // 3. MUDANÇA DE COMPORTAMENTO: Altera cirurgicamente o clique do botão para disparar a rota parcial
+    // Altera o clique do botão para disparar a rota paralela
     if (btnOriginal) {
         btnOriginal.setAttribute("onclick", "enviarDadosFinaisParalelo()");
         btnOriginal.innerText = "✅ Confirmar e Enviar Parcial";
     }
     
-    // Dispara a fase de assinatura nativa do seu sistema
     if (typeof prepararFaseAssinatura === "function") {
         prepararFaseAssinatura(btnOriginal, areaAssinaturaOriginal);
     }
 }
 
+// Passo C: Motor de Envio Paralelo Corrigido (Usa a memória congelada do Romaneio)
 async function enviarDadosFinaisParalelo() {
     const btn = document.querySelector("button[onclick='enviarDadosFinaisParalelo()']");
     const areaAssinatura = document.getElementById("areaAssinatura");
-    const romaneioAtual = document.getElementById("romaneio").value;
+    
+    // 🌟 CIRÚRGICO: Recupera o ID do romaneio direto do nosso congelador de memória de segurança,
+    // eliminando de vez o erro causado por limpezas e resets prematuros causados pelo modal!
+    const romaneioAlvoFinal = romaneioParaleloCongelado || document.getElementById("romaneio").value;
 
+    if (!romaneioAlvoFinal) {
+        return alert("❌ Erro de Sistema: ID do Romaneio não localizado na esteira parcial.");
+    }
     if (assinaturaVazia()) return alert("⚠️ Assine antes de finalizar!");
 
     try {
@@ -2790,10 +2819,10 @@ async function enviarDadosFinaisParalelo() {
         const sufixoDispositivo = usarUsb ? "via USB" : "via Mobile";
         const textoObsDefinitivo = `Conferencia Parcial ${sufixoDispositivo}`;
 
-        // Payload estruturado para o tráfego do formulário
+        // Payload estruturado enviando o ID congelado seguro
         const payload = {
             action: "finalizarLoteParalelo",
-            romaneio: romaneioAtual,
+            romaneio: romaneioAlvoFinal, // 🌟 ID Blindado enviado com sucesso!
             usuario: document.getElementById("usuario").value,
             codigos: typeof codigosLidos !== 'undefined' ? JSON.stringify(codigosLidos) : "[]",
             geo: window.lastGeo || "0,0",
@@ -2812,7 +2841,6 @@ async function enviarDadosFinaisParalelo() {
             areaAssinatura.style.pointerEvents = "none";
         }
 
-        // 🌟 CORREÇÃO CIRÚRGICA: Envia no formato de formulário aceito pelo seu back-end nativo
         const formParams = new URLSearchParams();
         Object.keys(payload).forEach(key => formParams.append(key, payload[key]));
 
@@ -2825,20 +2853,20 @@ async function enviarDadosFinaisParalelo() {
         const result = await response.json();
 
         if (result.success) {
-            // Remove o romaneio finalizado do cache local para limpar a tela
             if (typeof dadosCompletos !== 'undefined') {
-                dadosCompletos = dadosCompletos.filter(r => r.Romaneio !== romaneioAtual && r.romaneio !== romaneioAtual && r.id !== romaneioAtual);
+                dadosCompletos = dadosCompletos.filter(r => r.Romaneio !== romaneioAlvoFinal && r.romaneio !== romaneioAlvoFinal && r.id !== romaneioAlvoFinal);
             }
             if (typeof atualizarComboboxInterface === 'function') atualizarComboboxInterface();
             
-            // Exibe o alerta operacional solicitado para o modo parcial com faltas
+            // Alerta de sucesso parcial requisitado
             alert("⚠️ Intercorrencia lançada para conferencia parcial");
             
-            // Restaura o atributo de clique original do botão mestre para finalizarLote
+            // Restaura o botão mestre para o formato nativo
             if (btn) btn.setAttribute("onclick", "finalizarLote()");
             
-            // 🌟 CIRÚRGICO: Reseta os sinalizadores e limpa completamente os campos e o painel da tela
+            // Reseta as variáveis de estado para a próxima carga e limpa a tela de vez
             loteFechadoComFaltantes = false;
+            romaneioParaleloCongelado = ""; 
             resetarInterface();
             
         } else {
@@ -2858,7 +2886,6 @@ async function enviarDadosFinaisParalelo() {
         }
     }
 }
-
 
     
 </script>
