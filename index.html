@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v9</h3>
+    <h3>Passagem de Carga | Conferência v10</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -2719,6 +2719,8 @@ async function enviarOcorrenciaFaltanteFluxo() {
     let listaCodigos = [];
     checkboxes.forEach(cb => { if(cb.value) listaCodigos.push(cb.value.toString().trim()); });
 
+    // 🌟 CIRÚRGICO: O front-end monta apenas o texto puro da descrição dos pedidos afetados.
+    // REMOVIDO DAQUI: O sufixo "| Volumes confirmados / CONCLUÍDO", evitando duplicar ou corromper a string.
     let finalDesc = descText + " - [Pedidos Afetados: " + listaCodigos.join(", ") + "]";
 
     btn.disabled = true;
@@ -2727,13 +2729,13 @@ async function enviarOcorrenciaFaltanteFluxo() {
     const payload = {
         action: "salvarFluxoOcorrenciaCONF",
         romaneio: romaneioVal,
-        oc_motivo: "Informe Administrativo",
-        oc_descricao: finalDesc,
+        oc_motivo: "Faltantes Administrativos", // Bate dinamicamente com o dadosForm.oc_motivo do seu backend
+        oc_descricao: finalDesc, // Passa o texto limpo sem o sufixo de conclusão
         oc_token: "", 
         oc_foto_data: "", 
         oc_foto_name: "", 
         oc_itens_remover: JSON.stringify(listaCodigos),
-        tipoFluxo: "Informar" 
+        tipoFluxo: "Informar" // Ativa a sua tag dinâmica 'tagFluxoTexto = " [Informe - "' no backend
     };
 
     const formParams = new URLSearchParams();
@@ -2744,15 +2746,12 @@ async function enviarOcorrenciaFaltanteFluxo() {
         const result = await response.json();
         
         if (result.success) {
+            // Sinaliza que este lote possui faltas e precisa da mensagem customizada no final
             loteFechadoComFaltantes = true;
-            
-            // 🌟 CIRÚRGICO: Alimenta a variável global intercorrenciaFinal com os dados que o operador 
-            // acabou de digitar no modal, preparando o texto que o seu backend vai carimbar no final.
-            intercorrenciaFinal = finalDesc + " | Volumes confirmados / CONCLUÍDO";
             
             fecharModalFaltantes();
             
-            // Avança para a esteira de assinatura original
+            // Avança perfeitamente para a esteira original de Assinatura do conferente
             const btnFinalizarOriginal = document.querySelector("button[onclick='finalizarLote()']") || document.getElementById("btnFinalizarLote");
             const areaAssinaturaOriginal = document.getElementById("areaAssinatura");
             
@@ -2760,7 +2759,7 @@ async function enviarOcorrenciaFaltanteFluxo() {
                 await prepararFaseAssinatura(btnFinalizarOriginal, areaAssinaturaOriginal);
             }
             
-            console.log("🔗 Intercorrência preparada no front-end! Encaminhado para a assinatura.");
+            console.log("🔗 Intercorrência salva via API compartilhada! Encaminhado para a assinatura.");
         } else {
             alert("❌ Erro ao registrar faltas no servidor: " + result.error);
         }
@@ -2771,6 +2770,7 @@ async function enviarOcorrenciaFaltanteFluxo() {
         btn.innerText = "Enviar";
     }
 }
+
 
 
 
