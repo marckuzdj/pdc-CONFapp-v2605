@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v2</h3>
+    <h3>Passagem de Carga | Conferência v3</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -1570,10 +1570,24 @@ async function enviarDadosFinais() {
             geo: window.lastGeo || "0,0",
             assinatura: assinaturaBase64,
             conferencia: new Date().toLocaleString("pt-BR"),
-            intercorrencia: intercorrenciaFinal, 
+            
+            // =========================================================================
+            // 🚨 AJUSTE CIRÚRGICO: PRESERVAÇÃO TOTAL DO PRINT 1 + PRINT 2 NO FRONT-END
+            // =========================================================================
+            // Se viermos do modal de faltantes (loteFechadoComFaltantes === true), ele força
+            // a captura do histórico que o finalizarLote() leu, concatenando com o sufixo.
+            // Se for o fluxo direto 100% concluído tradicional, mantém o padrão do sistema.
+            // =========================================================================
+            intercorrencia: (typeof loteFechadoComFaltantes !== "undefined" && loteFechadoComFaltantes === true)
+                ? (intercorrenciaFinal && intercorrenciaFinal !== "CONCLUÍDO")
+                    ? intercorrenciaFinal + " | Volumes confirmados / CONCLUÍDO"
+                    : "Volumes confirmados / CONCLUÍDO"
+                : "Volumes confirmados / CONCLUÍDO", 
+                
             obs_final: textoObsDefinitivo, 
             status_lote: statusProgresso 
         };
+
 
         const response = await fetch(urlSheets, {
             method: 'POST',
