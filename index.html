@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v7</h3>
+    <h3>Passagem de Carga | Conferência v8</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -1675,27 +1675,26 @@ function resetarTravaEnvio(btn, area) {
 let intercorrenciaFinal = "CONCLUÍDO";
 
 async function finalizarLote() {
-
     if (enviandoDados) return;
-
+    
     const romaneioVal = document.getElementById("romaneio").value;
     const areaAssinatura = document.getElementById("areaAssinatura");
     const btn = document.querySelector("button[onclick='finalizarLote()']");
     const ttVolumes = document.getElementById("total_volumes").value; 
-
-    if (!romaneioVal) return alert("⚠️ Selecione um romaneio!");
+    
+    if (!romaneioVal) return alert(" Selecione um romaneio!");
 
     // --- FASE 2: ENVIO FINAL (Assinatura Aberta) ---
     if (areaAssinatura && (areaAssinatura.style.display === "block" || !areaAssinatura.classList.contains('hidden'))) {
-        if (assinaturaVazia()) return alert("⚠️ Assine antes de finalizar!");
-
+        if (assinaturaVazia()) return alert(" Assine antes de finalizar!");
+        
         // Ativa trava e spinner antes de chamar o envio
         enviandoDados = true; 
         btn.disabled = true;
         btn.innerHTML = '<div class="spinner"></div> Enviando ao Servidor...';
         areaAssinatura.style.opacity = "0.5";
         areaAssinatura.style.pointerEvents = "none";
-
+        
         await enviarDadosFinais(); 
         return;
     }
@@ -1708,14 +1707,38 @@ async function finalizarLote() {
         const response = await fetch(`${urlSheets}?action=verificarPendencias&romaneio=${encodeURIComponent(romaneioVal)}`);
         const check = await response.json();
 
-        // 1. Verifica Pendências (Standby)
         // 1. Verifica Pendências (Standby) - BL_OCULTO DO PRINT ATUALIZADO
         if (check.faltantes && check.faltantes.length > 0) {
             const qtdFaltantes = check.faltantes.length;
-            if (confirm(`⚠️ Atenção: Faltam conferir ${qtdFaltantes} itens neste lote.\n\nPara abortar a conferencia do romaneio, é obrigatório registrar intercorrencia. Continuar?`)) {
+            
+            if (confirm(` Atenção: Faltam conferir ${qtdFaltantes} itens neste lote.\n\nPara abortar a conferencia do romaneio, é obrigatório registrar intercorrencia. Continuar?`)) {
                 pulouComentarioFinal = true;
                 
-                // 🌟 REDIRECIONAMENTO CIRÚRGICO PARA O NOVO ID DE MODAL ISOLADO
+                // =========================================================================
+                // 🚨 ADIÇÃO CIRÚRGICA: CONCATENAÇÃO EM CASCATA ANTES DO DESVIO DO MODAL
+                // =========================================================================
+                let historicoPrevio = "";
+                if (check && (check.intercorrencia || check.INTERCORRENCIAS || check.textoStatus)) {
+                    historicoPrevio = (check.intercorrencia || check.INTERCORRENCIAS || check.textoStatus).toString().trim();
+                }
+
+                const fraseConclusaoCompleta = "Volumes confirmados / CONCLUÍDO";
+                
+                // Regra de Negócio: Se não está vazia, concatena. Se está vazia, assume a frase direta
+                if (historicoPrevio !== "") {
+                    if (!historicoPrevio.includes(fraseConclusaoCompleta)) {
+                        intercorrenciaFinal = historicoPrevio + " | " + fraseConclusaoCompleta;
+                    } else {
+                        intercorrenciaFinal = historicoPrevio;
+                    }
+                } else {
+                    intercorrenciaFinal = fraseConclusaoCompleta;
+                }
+                
+                console.log("Variável global intercorrenciaFinal preparada com sucesso condicional para Faltantes:", intercorrenciaFinal);
+                // =========================================================================
+
+                // REDIRECIONAMENTO CIRÚRGICO PARA O NOVO ID DE MODAL ISOLADO
                 abrirNovaTelaOcorrenciaFaltantes();
             }
             btn.disabled = false;
@@ -1724,39 +1747,28 @@ async function finalizarLote() {
         }
 
         // =========================================================================
-        // 🚨 LOGICA CORRIGIDA: CONDICIONAL BASEADA NO DADO EM TEMPO REAL DO SERVIDOR
-        // =========================================================================
-        // Buscamos o histórico atualizado diretamente do objeto 'check' retornado 
-        // pela API, ignorando o cache local desatualizado da memória.
+        // LOGICA PADRÃO MANTIDA: CONDICIONAL PARA O FLUXO 100% CONCLUÍDO DIRETO
         // =========================================================================
         let historicoPrevio = "";
-        
-        // Verifica se a API de pendências retornou o estado atual da célula 'INTERCORRENCIAS'
         if (check && (check.intercorrencia || check.INTERCORRENCIAS || check.textoStatus)) {
             historicoPrevio = (check.intercorrencia || check.INTERCORRENCIAS || check.textoStatus).toString().trim();
         }
-
+        
         const fraseConclusaoCompleta = "Volumes confirmados / CONCLUÍDO";
         
-        // Regra de Negócio: Se NÃO está vazia, concatena. Se está vazia, envia a frase direta.
         if (historicoPrevio !== "") {
-            // Evita duplicar caso a frase de conclusão já conste de alguma forma no histórico
             if (!historicoPrevio.includes(fraseConclusaoCompleta)) {
                 intercorrenciaFinal = historicoPrevio + " | " + fraseConclusaoCompleta;
             } else {
-                intercorrenciaFinal = historicoPrevio; // Mantém como está se já tiver a frase
+                intercorrenciaFinal = historicoPrevio; 
             }
         } else {
-            // Se a célula estava 100% vazia, assume apenas a frase direta de conclusão
             intercorrenciaFinal = fraseConclusaoCompleta;
         }
         
         pulouComentarioFinal = false; 
-        console.log("Variável global intercorrenciaFinal definida com sucesso condicional:", intercorrenciaFinal);
+        console.log("Variável global intercorrenciaFinal definida com sucesso condicional fluxo direto:", intercorrenciaFinal);
         // =========================================================================
-
-        // =========================================================================
-
 
         // 3. Performance: Desliga Hardware (Mantido original)
         const usbField = document.getElementById("container-leitor-usb");
@@ -1789,9 +1801,10 @@ async function finalizarLote() {
         enviandoDados = false;
         btn.disabled = false;
         btn.innerText = "Finalizar Lote";
-        alert("❌ Erro na validação.");
+        alert(" Erro na validação.");
     }
 }
+
 
 
 
@@ -2723,22 +2736,23 @@ async function enviarOcorrenciaFaltanteFluxo() {
         const result = await response.json();
         
         if (result.success) {
-            // 🌟 SINALIZADOR ATIVO: Avisa o sistema que este lote possui faltantes associadas
             loteFechadoComFaltantes = true;
             
-            // A: Fecha o modal de faltantes limpando a tela do usuário
+            // 🌟 CIRÚRGICO: Alimenta a variável global intercorrenciaFinal com os dados que o operador 
+            // acabou de digitar no modal, preparando o texto que o seu backend vai carimbar no final.
+            intercorrenciaFinal = finalDesc + " | Volumes confirmados / CONCLUÍDO";
+            
             fecharModalFaltantes();
             
-            // B: Ponte de Transição - Aciona a esteira nativa de assinatura e geolocalização do app
+            // Avança para a esteira de assinatura original
             const btnFinalizarOriginal = document.querySelector("button[onclick='finalizarLote()']") || document.getElementById("btnFinalizarLote");
             const areaAssinaturaOriginal = document.getElementById("areaAssinatura");
             
-            // Força a preparação da assinatura do conferente como no fluxo 100% concluído
             if (typeof prepararFaseAssinatura === "function") {
                 await prepararFaseAssinatura(btnFinalizarOriginal, areaAssinaturaOriginal);
             }
             
-            console.log("🔗 Intercorrência salva! Fluxo encaminhado para a fase de assinatura do conferente.");
+            console.log("🔗 Intercorrência preparada no front-end! Encaminhado para a assinatura.");
         } else {
             alert("❌ Erro ao registrar faltas no servidor: " + result.error);
         }
@@ -2749,6 +2763,7 @@ async function enviarOcorrenciaFaltanteFluxo() {
         btn.innerText = "Enviar";
     }
 }
+
 
 
 
