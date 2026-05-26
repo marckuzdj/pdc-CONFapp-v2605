@@ -355,7 +355,7 @@
             <!-- Botões de Ação do Rodapé -->
             <div style="display: flex; gap: 10px; margin-top: 10px;">
                 <button type="button" onclick="fecharModalFaltantes()" style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Cancelar</button>
-                <button type="button" id="btnEnviarOcorrenciaFaltante" onclick="enviarOcorrenciaFaltanteFluxo()" style="flex: 1; padding: 12px; background: #8A05BE; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Enviar</button>
+                <button type="button" id="btnEnviarOcorrenciaFaltante" onclick="finalizarLoteComFaltantesFluxo()" style="flex: 1; padding: 12px; background: #8A05BE; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Enviar</button>
             </div>
 
         </div>
@@ -2738,7 +2738,115 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 
+ async function finalizarLoteComFaltantesFluxo() {
+  // 1. Bloqueia duplo clique para evitar envio duplicado (Mutex)
+  if (enviandoDados) return;
+  
+  const btnEnviar = document.getElementById("btnEnviarOcorrenciaFaltante");
+  const textoOriginalBtn = btnEnviar ? btnEnviar.innerHTML : "Enviar";
+  
+  if (btnEnviar) {
+    btnEnviar.disabled = true;
+    btnEnviar.innerHTML = '<span class="spinner"></span>Enviando...';
+  }
+  enviandoDados = true;
+
+  try {
+    // 2. Coleta dados do Modal de Faltantes
+    const romaneioAlvo = document.getElementById("romaneio").value;
+    const motivo = document.getElementById("oc_motivo_faltante").value;
+    const justificativa = document.getElementById("oc_descricao_faltante").value;
+    const fotoInput = document.getElementById("oc_foto_faltante");
     
+    if (!motivo || !justificativa) {
+      alert("⚠️ Por favor, preencha o motivo e a justificativa antes de enviar.");
+      throw new Error("Campos obrigatorios ausentes");
+    }
+
+    // 3. Captura coordenadas de Geolocalização (GPS)
+    let geoTexto = "Não capturado";
+    try {
+      const posicao = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 7000
+        });
+      });
+      geoTexto = `${posicao.coords.latitude}, ${posicao.coords.longitude}`;
+    } catch (errGeo) {
+      console.warn("Falha ao obter GPS no fechamento parcial:", errGeo);
+    }
+
+    // 4. Captura a Assinatura Digital do Canvas
+    const canvas = document.getElementById("canvasAssinatura");
+    let assinaturaBase64 = "";
+    if (canvas) {
+      // Opcional: Adicione aqui uma checagem se o canvas está em branco se for obrigatório
+      assinaturaBase64 = canvas.toDataURL("image/png");
+    }
+
+    // 5. Processamento de Imagem Anexa (Evidência/Foto) se houver
+    let fotoBase64 = "";
+    if (fotoInput && fotoInput.files && fotoInput.files[0]) {
+      fotoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(fotoInput.files[0]);
+      });
+    }
+
+    // 6. Montagem do Payload para o Backend (App Script)
+    // ATENÇÃO: Enviamos os dados da ocorrência de faltantes estruturados
+    const payload = {
+      action: "gravarStatusProgressoRomaneio", // Reutiliza a rota de gravação ou sua respectiva rota de update
+      romaneio: romaneioAlvo,
+      status_txt: document.getElementById("txt-progresso").innerText, // Ex: "12 / 15 Pedidos (80%)"
+      geolocalizacao: geoTexto,
+      assinatura: assinaturaBase64,
+      evidencia_foto: fotoBase64,
+      ocorrencia_motivo: motivo,
+      ocorrencia_desc: justificativa,
+      device: window.aparelhoUtilizadoNoLote,
+      concluido_formal: false // Flag para o backend saber que NÃO deve colocar o sufixo "CONCLUÍDO"
+    };
+
+    // 7. Envio transacional via JSONP para o Apps Script
+    const queryString = new URLSearchParams({ action: payload.action, romaneio: payload.romaneio }).toString();
+    const urlFinal = `${urlSheets}?${queryString}`;
+    
+    // Como seu projeto usa JSONP para contornar CORS:
+    const resposta = await fetchJSONP(`${urlSheets}?action=salvarTratativaOcorrencia&` + new URLSearchParams({
+      romaneio: romaneioAlvo,
+      motivo: motivo,
+      descricao: `[FALTANTES] ${justificativa} | GPS: ${geoTexto}`,
+      dispositivo: window.aparelhoUtilizadoNoLote
+    }).toString());
+
+    // Executa a gravação do status do progresso paralelo
+    await fetchJSONP(`${urlSheets}?action=gravarStatusProgressoRomaneio&` + new URLSearchParams({
+      romaneio: romaneioAlvo,
+      status_txt: payload.status_txt
+    }).toString());
+
+    alert("🚀 Lote parcial finalizado e registrado com sucesso!");
+    
+    // 8. Pós-fechamento cirúrgico
+    fecharModalFaltantes();
+    resetarInterface();
+
+  } catch (erro) {
+    console.error("Erro ao finalizar lote parcial:", erro);
+    if (typeof tocarBeep === 'function') tocarBeep('erro');
+  } finally {
+    // Libera o Mutex e restaura o botão
+    enviandoDados = false;
+    if (btnEnviar) {
+      btnEnviar.disabled = false;
+      btnEnviar.innerHTML = textoOriginalBtn;
+    }
+  }
+}
+   
 </script>
 
 </body>
