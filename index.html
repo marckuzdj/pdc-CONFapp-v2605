@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v5</h3>
+    <h3>Passagem de Carga | Conferência v1</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -2709,8 +2709,7 @@ async function enviarOcorrenciaFaltanteFluxo() {
         const result = await response.json();
         if (result.success) {
             fecharModalFaltantes();
-            //alert("🎉 Lote finalizado com sucesso!");
-            avancarParaAssinaturaParalela();
+            alert("🎉 Lote finalizado com sucesso!");
             if (typeof resetarInterface === "function") resetarInterface();
         } else {
             alert("❌ Erro no servidor: " + result.error);
@@ -2738,156 +2737,6 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 });
-
-// Variáveis globais de contexto e controle
-let loteFechadoComFaltantes = false;
-let romaneioParaleloCongelado = ""; // 🌟 NOVO: Guarda o ID de forma blindada contra resets de tela
-
-// Passo A: Inicia a esteira paralela e congela o ID do romaneio ativo na memória
-async function iniciarFluxoParaleloFaltantes() {
-    loteFechadoComFaltantes = true;
-    
-    // 🌟 CIRÚRGICO: Salva o número do romaneio na memória global ANTES de qualquer reset acontecer
-    const campoRom = document.getElementById("romaneio");
-    if (campoRom) {
-        romaneioParaleloCongelado = campoRom.value.toString().trim().toUpperCase();
-        console.log("🔒 ID do Romaneio congelado com sucesso para a esteira parcial:", romaneioParaleloCongelado);
-    }
-    
-    // Abre o modal de faltantes nativo do seu sistema
-    if (typeof abrirNovaTelaOcorrenciaFaltantes === "function") {
-        await abrirNovaTelaOcorrenciaFaltantes();
-    }
-    
-    // Automatização das marcações travadas
-    setTimeout(function() {
-        const checkboxesFaltantes = document.querySelectorAll('input[name="oc_itens_faltantes_sel"]');
-        checkboxesFaltantes.forEach(function(cb) {
-            cb.checked = true;
-            cb.disabled = true;
-            if (cb.parentElement) cb.parentElement.style.color = "#666";
-        });
-        const container = document.getElementById("oc_container_fornec_faltante");
-        if (container) container.style.border = "1px dashed #8A05BE";
-    }, 800);
-}
-
-// Passo B: Ponte de transição após o envio do modal de faltantes administrativo
-function avancarParaAssinaturaParalela() {
-    fecharModalFaltantes();
-    
-    const btnOriginal = document.querySelector("button[onclick='finalizarLote()']");
-    const areaAssinaturaOriginal = document.getElementById("areaAssinatura");
-    
-    // Altera o clique do botão para disparar a rota paralela
-    if (btnOriginal) {
-        btnOriginal.setAttribute("onclick", "enviarDadosFinaisParalelo()");
-        btnOriginal.innerText = "✅ Confirmar e Enviar Parcial";
-    }
-    
-    if (typeof prepararFaseAssinatura === "function") {
-        prepararFaseAssinatura(btnOriginal, areaAssinaturaOriginal);
-    }
-}
-
-// Passo C: Motor de Envio Paralelo Corrigido (Usa a memória congelada do Romaneio)
-async function enviarDadosFinaisParalelo() {
-    const btn = document.querySelector("button[onclick='enviarDadosFinaisParalelo()']");
-    const areaAssinatura = document.getElementById("areaAssinatura");
-    
-    // 🌟 CIRÚRGICO: Recupera o ID do romaneio direto do nosso congelador de memória de segurança,
-    // eliminando de vez o erro causado por limpezas e resets prematuros causados pelo modal!
-    const romaneioAlvoFinal = romaneioParaleloCongelado || document.getElementById("romaneio").value;
-
-    if (!romaneioAlvoFinal) {
-        return alert("❌ Erro de Sistema: ID do Romaneio não localizado na esteira parcial.");
-    }
-    if (assinaturaVazia()) return alert("⚠️ Assine antes de finalizar!");
-
-    try {
-        const canvas = document.getElementById('canvasAssinatura');
-        const assinaturaBase64 = canvas ? canvas.toDataURL("image/png") : "";
-        const elementoProgresso = document.getElementById("txt-progresso");
-        const statusProgresso = elementoProgresso ? elementoProgresso.innerText.trim() : "";
-
-        const usbContainer = document.getElementById("container-leitor-usb");
-        const inputUsb = document.getElementById("input-usb");
-        const usarUsb = window.aparelhoUtilizadoNoLote === "via USB" || 
-                        (usbContainer && usbContainer.style.display !== "none" && !usbContainer.classList.contains('hidden')) ||
-                        (inputUsb && document.activeElement === inputUsb);
-        
-        const sufixoDispositivo = usarUsb ? "via USB" : "via Mobile";
-        const textoObsDefinitivo = `Conferencia Parcial ${sufixoDispositivo}`;
-
-        // Payload estruturado enviando o ID congelado seguro
-        const payload = {
-            action: "finalizarLoteParalelo",
-            romaneio: romaneioAlvoFinal, // 🌟 ID Blindado enviado com sucesso!
-            usuario: document.getElementById("usuario").value,
-            codigos: typeof codigosLidos !== 'undefined' ? JSON.stringify(codigosLidos) : "[]",
-            geo: window.lastGeo || "0,0",
-            assinatura: assinaturaBase64,
-            conferencia: new Date().toLocaleString("pt-BR"),
-            obs_final: textoObsDefinitivo, 
-            status_lote: statusProgresso 
-        };
-
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<div class="spinner"></div> Enviando ao Servidor...';
-        }
-        if (areaAssinatura) {
-            areaAssinatura.style.opacity = "0.5";
-            areaAssinatura.style.pointerEvents = "none";
-        }
-
-        const urlComParametrosExclusivos = `${urlSheets}?action=finalizarLoteParalelo&romaneio=${encodeURIComponent(romaneioAlvoFinal)}`;
-
-        const formParams = new URLSearchParams();
-        Object.keys(payload).forEach(key => formParams.append(key, payload[key]));
-
-        const response = await fetch(urlComParametrosExclusivos, {
-            method: 'POST',
-            body: formParams,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            if (typeof dadosCompletos !== 'undefined') {
-                dadosCompletos = dadosCompletos.filter(r => r.Romaneio !== romaneioAlvoFinal && r.romaneio !== romaneioAlvoFinal && r.id !== romaneioAlvoFinal);
-            }
-            if (typeof atualizarComboboxInterface === 'function') atualizarComboboxInterface();
-            
-            // Alerta de sucesso parcial requisitado
-            alert("⚠️ Intercorrencia lançada para conferencia parcial");
-            
-            // Restaura o botão mestre para o formato nativo
-            if (btn) btn.setAttribute("onclick", "finalizarLote()");
-            
-            // Reseta as variáveis de estado para a próxima carga e limpa a tela de vez
-            loteFechadoComFaltantes = false;
-            romaneioParaleloCongelado = ""; 
-            resetarInterface();
-            
-        } else {
-            throw new Error(result.error || "Erro no servidor");
-        }
-
-    } catch (e) {
-        console.error("Erro no envio parcial:", e);
-        alert("❌ Falha ao enviar parcial: " + e.message);
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = "✅ Confirmar e Enviar Parcial";
-        }
-        if (areaAssinatura) {
-            areaAssinatura.style.opacity = "1";
-            areaAssinatura.style.pointerEvents = "auto";
-        }
-    }
-}
 
     
 </script>
