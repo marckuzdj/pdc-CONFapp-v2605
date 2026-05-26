@@ -333,10 +333,10 @@
             </div>
 
             <!-- Campo: Token de Devolução -->
-            <div>
+           <!-- <div>
                 <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">TOKEN AUTORIZAÇÃO (Emitido pelo Operador Logístico):</label>
                 <input type="text" id="oc_token_faltante" placeholder="Digite o token de autorização" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
-            </div>
+            </div> -->
 
             <!-- Campo: Anexar Evidência -->
             <div>
@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v3</h3>
+    <h3>Passagem de Carga | Conferência v4</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -2603,7 +2603,7 @@ async function abrirNovaTelaOcorrenciaFaltantes() {
     // Reseta todos os campos físicos do formulário para garantir limpeza de cache
     if(document.getElementById("oc_motivo_faltante")) document.getElementById("oc_motivo_faltante").value = "";
     if(document.getElementById("oc_descricao_faltante")) document.getElementById("oc_descricao_faltante").value = "";
-    if(document.getElementById("oc_token_faltante")) document.getElementById("oc_token_faltante").value = "";
+   // if(document.getElementById("oc_token_faltante")) document.getElementById("oc_token_faltante").value = "";
     if(document.getElementById("oc_foto_faltante")) document.getElementById("oc_foto_faltante").value = "";
 
     const container = document.getElementById("oc_container_fornec_faltante");
@@ -2657,23 +2657,23 @@ function fecharModalFaltantes() {
 async function enviarOcorrenciaFaltanteFluxo() {
     const motivo = document.getElementById("oc_motivo_faltante").value;
     const descText = document.getElementById("oc_descricao_faltante").value.trim();
-    const tokenVal = document.getElementById("oc_token_faltante").value.trim();
+   // const tokenVal = document.getElementById("oc_token_faltante").value.trim();
     const btn = document.getElementById("btnEnviarOcorrenciaFaltante");
     const romaneioVal = document.getElementById("romaneio").value;
 
     // Validações obrigatórias rígidas do fluxo de Devolução
     if (!motivo) return alert("⚠️ Selecione o motivo da retenção!");
     if (!descText) return alert("⚠️ Digite uma descrição detalhada!");
-    if (!tokenVal) return alert("⚠️ Informe o TOKEN DE DEVOLUÇÃO!");
+  //  if (!tokenVal) return alert("⚠️ Informe o TOKEN DE DEVOLUÇÃO!");
 
      // const checkboxes = document.querySelectorAll('input[name="oc_itens_faltantes_sel"]:checked');
     // Localize esta linha dentro de enviarOcorrenciaFaltanteFluxo()
     // Modifique o seletor mudando de ':checked' para ler diretamente o name, já que todos estão travados ativos
     const checkboxes = document.querySelectorAll('input[name="oc_itens_faltantes_sel"]');
 
-    if (checkboxes.length === 0) {
-        return alert("⚠️ É MANDATÓRIO selecionar ao menos um pedido afetado!");
-    }
+   // if (checkboxes.length === 0) {
+     //   return alert("⚠️ É MANDATÓRIO selecionar ao menos um pedido afetado!");
+    //}
 
     let listaCodigos = [];
     checkboxes.forEach(cb => { if(cb.value) listaCodigos.push(cb.value.toString().trim()); });
@@ -2692,7 +2692,7 @@ async function enviarOcorrenciaFaltanteFluxo() {
         romaneio: romaneioVal,
         oc_motivo: "Informe Administrativo", // 🌟 FIX: Forçado fixo para ativar a trava do backend
         oc_descricao: finalDesc,
-        oc_token: tokenVal,
+        oc_token: "", // 🌟 MUDADO PARA VAZIO: Remove a necessidade de envio de token//tokenVal,
         oc_foto_data: "", 
         oc_foto_name: "", 
         oc_itens_remover: JSON.stringify(listaCodigos),
