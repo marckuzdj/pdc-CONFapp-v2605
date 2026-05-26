@@ -199,7 +199,7 @@
 <!-- Estrutura nativa do Modal (Inicia oculto) -->
 <div id="modalRetido" class="modal-retido-overlay hidden" style="display: none;">
     <div class="modal-retido-box">
-        <h2>⚠️ Este Romaneio Tem Observações/Ressalvas:</h2>
+        <h2>⚠️ Este Romaneio Possui Restrições/Ressalvas:</h2>
         <div id="modalRetidoDesc" class="modal-retido-desc"></div>
         <button onclick="fecharModalRetido()">Voltar</button>
     </div>
@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v11</h3>
+    <h3>Passagem de Carga | Conferência v1</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -1535,9 +1535,6 @@ function assinaturaVazia() {
 // Variável global para controle de envio (Mantenha no topo do script)
 //let enviandoDados = false;
 
-// Variável global de contexto (Deve estar declarada no escopo global dos scripts)
-let loteFechadoComFaltantes = false;
-
 async function enviarDadosFinais() {
     const btn = document.querySelector("button[onclick='finalizarLote()']");
     const areaAssinatura = document.getElementById("areaAssinatura");
@@ -1565,81 +1562,45 @@ async function enviarDadosFinais() {
             ? `Conferencia Finalizada ${sufixoDispositivo}` 
             : `Conferencia Parcial ${sufixoDispositivo}`;
 
-        // 🌟 PAYLOAD ESTRUTURADO ORIGINAL PRESERVADO
         const payload = {
             action: "finalizarLote",
             romaneio: romaneioAtual,
             usuario: document.getElementById("usuario").value,
-            codigos: typeof codigosLidos !== 'undefined' ? JSON.stringify(codigosLidos) : "[]", 
+            codigos: typeof codigosLidos !== 'undefined' ? codigosLidos : [],
             geo: window.lastGeo || "0,0",
             assinatura: assinaturaBase64,
             conferencia: new Date().toLocaleString("pt-BR"),
-            
-            // =========================================================================
-            // 🚨 BLINDAGEM CIRÚRGICA: PERSISTÊNCIA DINÂMICA DO HISTÓRICO COM DATA
-            // =========================================================================
-            // Se viermos do fluxo de faltantes (loteFechadoComFaltantes === true),
-            // injeta a string 'intercorrenciaFinal' acumulada na memória para o servidor.
-            // =========================================================================
-            intercorrencia: (typeof loteFechadoComFaltantes !== "undefined" && loteFechadoComFaltantes === true) 
-                ? intercorrenciaFinal 
-                : intercorrenciaFinal, 
-                
+            intercorrencia: intercorrenciaFinal, 
             obs_final: textoObsDefinitivo, 
             status_lote: statusProgresso 
         };
 
-        // Conversão de formato obrigatória para compatibilidade com o Apps Script
-        const corpoFormularioFinal = new URLSearchParams();
-        Object.keys(payload).forEach(key => {
-            corpoFormularioFinal.append(key, payload[key]);
-        });
-
         const response = await fetch(urlSheets, {
             method: 'POST',
-            body: corpoFormularioFinal,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            body: JSON.stringify(payload)
         });
 
         const result = await response.json();
 
         if (result.success) {
+            // 🚨 ADIADO: Remoção do bloco que limpava o cache local (dadosCompletos) e reconstruía o select prematuramente.
+            // Agora a lista aguarda congelada a decisão final do usuário no modal de ocorrência.
+
             // Interceptador de ocorrências condicional (Mantido seu fluxo padrão)
             setTimeout(() => {
                 romaneioSendoFinalizado = romaneioAtual; 
-                
-                // Se viermos do modal de faltantes, pula a pergunta de ocorrência e encerra direto
-                if (typeof loteFechadoComFaltantes !== "undefined" && loteFechadoComFaltantes === true) {
-                    if (typeof dadosCompletos !== 'undefined') {
-                        dadosCompletos = dadosCompletos.filter(r => r.Romaneio !== romaneioAtual && r.romaneio !== romaneioAtual && r.id !== romaneioAtual);
-                    }
-                    if (typeof atualizarComboboxInterface === 'function') atualizarComboboxInterface();
-                    
-                    // Exibe a frase customizada requisitada para a conferência parcial com faltas
-                    alert("⚠️ Intercorrencia lançada para conferencia parcial");
-                    
-                    // Reseta os sinalizadores de estado globais e destrava o formulário por completo
-                    loteFechadoComFaltantes = false;
-                    if (typeof enviandoDados !== 'undefined') enviandoDados = false; 
-                    resetarInterface();
-                    return;
-                }
-
                 const modalPerg = document.getElementById("modalPerguntaOcorrencia");
                 if (modalPerg) {
                     modalPerg.classList.remove("hidden");
                     modalPerg.style.display = "flex";
+                    // Interface permanece congelada com o botão cinza enquanto o modal está ativo
                 } else {
                     // Fallback caso não exista modal: atualiza aqui por segurança
                     if (typeof dadosCompletos !== 'undefined') {
                         dadosCompletos = dadosCompletos.filter(r => r.Romaneio !== romaneioAtual && r.romaneio !== romaneioAtual && r.id !== romaneioAtual);
                     }
                     if (typeof atualizarComboboxInterface === 'function') atualizarComboboxInterface();
-                    
                     alert("Lote finalizado com sucesso!");
-                    
-                    loteFechadoComFaltantes = false;
-                    if (typeof enviandoDados !== 'undefined') enviandoDados = false; 
                     resetarInterface();
                 }
             }, 600);
@@ -1656,7 +1617,7 @@ async function enviarDadosFinais() {
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = "✅ Confirmar e Enviar";
-            btn.style.backgroundColor = ""; 
+            btn.style.backgroundColor = ""; // Restaura cor original se falhar antes do modal
         }
         if (areaAssinatura) {
             areaAssinatura.style.opacity = "1";
@@ -1664,9 +1625,6 @@ async function enviarDadosFinais() {
         }
     }
 }
-
-
-
 
 
 
@@ -1688,26 +1646,27 @@ function resetarTravaEnvio(btn, area) {
 let intercorrenciaFinal = "CONCLUÍDO";
 
 async function finalizarLote() {
+
     if (enviandoDados) return;
-    
+
     const romaneioVal = document.getElementById("romaneio").value;
     const areaAssinatura = document.getElementById("areaAssinatura");
     const btn = document.querySelector("button[onclick='finalizarLote()']");
     const ttVolumes = document.getElementById("total_volumes").value; 
-    
-    if (!romaneioVal) return alert(" Selecione um romaneio!");
+
+    if (!romaneioVal) return alert("⚠️ Selecione um romaneio!");
 
     // --- FASE 2: ENVIO FINAL (Assinatura Aberta) ---
     if (areaAssinatura && (areaAssinatura.style.display === "block" || !areaAssinatura.classList.contains('hidden'))) {
-        if (assinaturaVazia()) return alert(" Assine antes de finalizar!");
-        
+        if (assinaturaVazia()) return alert("⚠️ Assine antes de finalizar!");
+
         // Ativa trava e spinner antes de chamar o envio
         enviandoDados = true; 
         btn.disabled = true;
         btn.innerHTML = '<div class="spinner"></div> Enviando ao Servidor...';
         areaAssinatura.style.opacity = "0.5";
         areaAssinatura.style.pointerEvents = "none";
-        
+
         await enviarDadosFinais(); 
         return;
     }
@@ -1720,38 +1679,14 @@ async function finalizarLote() {
         const response = await fetch(`${urlSheets}?action=verificarPendencias&romaneio=${encodeURIComponent(romaneioVal)}`);
         const check = await response.json();
 
+        // 1. Verifica Pendências (Standby)
         // 1. Verifica Pendências (Standby) - BL_OCULTO DO PRINT ATUALIZADO
         if (check.faltantes && check.faltantes.length > 0) {
             const qtdFaltantes = check.faltantes.length;
-            
-            if (confirm(` Atenção: Faltam conferir ${qtdFaltantes} itens neste lote.\n\nPara abortar a conferencia do romaneio, é obrigatório registrar intercorrencia. Continuar?`)) {
+            if (confirm(`⚠️ Atenção: Faltam conferir ${qtdFaltantes} itens neste lote.\n\nPara abortar a conferencia do romaneio, é obrigatório registrar intercorrencia. Continuar?`)) {
                 pulouComentarioFinal = true;
                 
-                // =========================================================================
-                // 🚨 ADIÇÃO CIRÚRGICA: CONCATENAÇÃO EM CASCATA ANTES DO DESVIO DO MODAL
-                // =========================================================================
-                let historicoPrevio = "";
-                if (check && (check.intercorrencia || check.INTERCORRENCIAS || check.textoStatus)) {
-                    historicoPrevio = (check.intercorrencia || check.INTERCORRENCIAS || check.textoStatus).toString().trim();
-                }
-
-                const fraseConclusaoCompleta = "Volumes confirmados / CONCLUÍDO";
-                
-                // Regra de Negócio: Se não está vazia, concatena. Se está vazia, assume a frase direta
-                if (historicoPrevio !== "") {
-                    if (!historicoPrevio.includes(fraseConclusaoCompleta)) {
-                        intercorrenciaFinal = historicoPrevio + " | " + fraseConclusaoCompleta;
-                    } else {
-                        intercorrenciaFinal = historicoPrevio;
-                    }
-                } else {
-                    intercorrenciaFinal = fraseConclusaoCompleta;
-                }
-                
-                console.log("Variável global intercorrenciaFinal preparada com sucesso condicional para Faltantes:", intercorrenciaFinal);
-                // =========================================================================
-
-                // REDIRECIONAMENTO CIRÚRGICO PARA O NOVO ID DE MODAL ISOLADO
+                // 🌟 REDIRECIONAMENTO CIRÚRGICO PARA O NOVO ID DE MODAL ISOLADO
                 abrirNovaTelaOcorrenciaFaltantes();
             }
             btn.disabled = false;
@@ -1760,28 +1695,39 @@ async function finalizarLote() {
         }
 
         // =========================================================================
-        // LOGICA PADRÃO MANTIDA: CONDICIONAL PARA O FLUXO 100% CONCLUÍDO DIRETO
+        // 🚨 LOGICA CORRIGIDA: CONDICIONAL BASEADA NO DADO EM TEMPO REAL DO SERVIDOR
+        // =========================================================================
+        // Buscamos o histórico atualizado diretamente do objeto 'check' retornado 
+        // pela API, ignorando o cache local desatualizado da memória.
         // =========================================================================
         let historicoPrevio = "";
+        
+        // Verifica se a API de pendências retornou o estado atual da célula 'INTERCORRENCIAS'
         if (check && (check.intercorrencia || check.INTERCORRENCIAS || check.textoStatus)) {
             historicoPrevio = (check.intercorrencia || check.INTERCORRENCIAS || check.textoStatus).toString().trim();
         }
-        
+
         const fraseConclusaoCompleta = "Volumes confirmados / CONCLUÍDO";
         
+        // Regra de Negócio: Se NÃO está vazia, concatena. Se está vazia, envia a frase direta.
         if (historicoPrevio !== "") {
+            // Evita duplicar caso a frase de conclusão já conste de alguma forma no histórico
             if (!historicoPrevio.includes(fraseConclusaoCompleta)) {
                 intercorrenciaFinal = historicoPrevio + " | " + fraseConclusaoCompleta;
             } else {
-                intercorrenciaFinal = historicoPrevio; 
+                intercorrenciaFinal = historicoPrevio; // Mantém como está se já tiver a frase
             }
         } else {
+            // Se a célula estava 100% vazia, assume apenas a frase direta de conclusão
             intercorrenciaFinal = fraseConclusaoCompleta;
         }
         
         pulouComentarioFinal = false; 
-        console.log("Variável global intercorrenciaFinal definida com sucesso condicional fluxo direto:", intercorrenciaFinal);
+        console.log("Variável global intercorrenciaFinal definida com sucesso condicional:", intercorrenciaFinal);
         // =========================================================================
+
+        // =========================================================================
+
 
         // 3. Performance: Desliga Hardware (Mantido original)
         const usbField = document.getElementById("container-leitor-usb");
@@ -1814,10 +1760,9 @@ async function finalizarLote() {
         enviandoDados = false;
         btn.disabled = false;
         btn.innerText = "Finalizar Lote";
-        alert(" Erro na validação.");
+        alert("❌ Erro na validação.");
     }
 }
-
 
 
 
@@ -2708,40 +2653,53 @@ function fecharModalFaltantes() {
     if (modal) { modal.classList.add("hidden"); modal.style.display = "none"; }
 }
 
-// Variable global para capturar se viemos do fluxo de conferência incompleta
-//let loteFechadoComFaltantes = false;
-
+// 🌟 MOTOR DE ENVIO: Trava e valida de forma mandatória como Devolver padrão
 async function enviarOcorrenciaFaltanteFluxo() {
     const motivo = document.getElementById("oc_motivo_faltante").value;
     const descText = document.getElementById("oc_descricao_faltante").value.trim();
+   // const tokenVal = document.getElementById("oc_token_faltante").value.trim();
     const btn = document.getElementById("btnEnviarOcorrenciaFaltante");
     const romaneioVal = document.getElementById("romaneio").value;
 
+    // Validações obrigatórias rígidas do fluxo de Devolução
     if (!motivo) return alert("⚠️ Selecione o motivo da retenção!");
     if (!descText) return alert("⚠️ Digite uma descrição detalhada!");
+  //  if (!tokenVal) return alert("⚠️ Informe o TOKEN DE DEVOLUÇÃO!");
 
+     // const checkboxes = document.querySelectorAll('input[name="oc_itens_faltantes_sel"]:checked');
+    // Localize esta linha dentro de enviarOcorrenciaFaltanteFluxo()
+    // Modifique o seletor mudando de ':checked' para ler diretamente o name, já que todos estão travados ativos
     const checkboxes = document.querySelectorAll('input[name="oc_itens_faltantes_sel"]');
+
+   // if (checkboxes.length === 0) {
+     //   return alert("⚠️ É MANDATÓRIO selecionar ao menos um pedido afetado!");
+    //}
+
     let listaCodigos = [];
     checkboxes.forEach(cb => { if(cb.value) listaCodigos.push(cb.value.toString().trim()); });
 
-    // 🌟 CIRÚRGICO: O front-end monta apenas o texto puro da descrição dos pedidos afetados.
-    // REMOVIDO DAQUI: O sufixo "| Volumes confirmados / CONCLUÍDO", evitando duplicar ou corromper a string.
+    // Monta o encerramento no formato padrão estrutural esperado pelo servidor
     let finalDesc = descText + " - [Pedidos Afetados: " + listaCodigos.join(", ") + "]";
 
     btn.disabled = true;
-    btn.innerText = "Gravando Intercorrência...";
+    btn.innerText = "Gravando...";
 
+    // =========================================================================
+    // 🚨 CORREÇÃO DO PAYLOAD: FORÇA O ENVIO DA ID DO FLUXO OPERACIONAL
+    // =========================================================================
     const payload = {
         action: "salvarFluxoOcorrenciaCONF",
         romaneio: romaneioVal,
-        oc_motivo: "Faltantes Administrativos", // Bate dinamicamente com o dadosForm.oc_motivo do seu backend
-        oc_descricao: finalDesc, // Passa o texto limpo sem o sufixo de conclusão
-        oc_token: "", 
+        oc_motivo: "Informe Administrativo", // 🌟 FIX: Forçado fixo para ativar a trava do backend
+        oc_descricao: finalDesc,
+        oc_token: "", // 🌟 MUDADO PARA VAZIO: Remove a necessidade de envio de token//tokenVal,
         oc_foto_data: "", 
         oc_foto_name: "", 
         oc_itens_remover: JSON.stringify(listaCodigos),
-        tipoFluxo: "Informar" // Ativa a sua tag dinâmica 'tagFluxoTexto = " [Informe - "' no backend
+        tipoFluxo: "Informar" // 🌟 FIX: Passa Informar para reforçar a barreira de segurança
     };
+    // =========================================================================
+
 
     const formParams = new URLSearchParams();
     Object.keys(payload).forEach(k => formParams.append(k, payload[k]));
@@ -2749,35 +2707,20 @@ async function enviarOcorrenciaFaltanteFluxo() {
     try {
         const response = await fetch(urlSheets, { method: 'POST', body: formParams, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
         const result = await response.json();
-        
         if (result.success) {
-            // Sinaliza que este lote possui faltas e precisa da mensagem customizada no final
-            loteFechadoComFaltantes = true;
-            
             fecharModalFaltantes();
-            
-            // Avança perfeitamente para a esteira original de Assinatura do conferente
-            const btnFinalizarOriginal = document.querySelector("button[onclick='finalizarLote()']") || document.getElementById("btnFinalizarLote");
-            const areaAssinaturaOriginal = document.getElementById("areaAssinatura");
-            
-            if (typeof prepararFaseAssinatura === "function") {
-                await prepararFaseAssinatura(btnFinalizarOriginal, areaAssinaturaOriginal);
-            }
-            
-            console.log("🔗 Intercorrência salva via API compartilhada! Encaminhado para a assinatura.");
+            alert("🎉 Lote finalizado com sucesso!");
+            if (typeof resetarInterface === "function") resetarInterface();
         } else {
-            alert("❌ Erro ao registrar faltas no servidor: " + result.error);
+            alert("❌ Erro no servidor: " + result.error);
         }
     } catch(err) {
-        alert("❌ Falha crítica na intercorrência: " + err.message);
+        alert("❌ Falha crítica: " + err.message);
     } finally {
         btn.disabled = false; 
         btn.innerText = "Enviar";
     }
 }
-
-
-
 
 
 // 🌟 MONITORAMENTO DINÂMICO DOS MOTIVOS DO NOVO MODAL
