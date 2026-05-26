@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v2</h3>
+    <h3>Passagem de Carga | Conferência v3</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -2684,17 +2684,22 @@ async function enviarOcorrenciaFaltanteFluxo() {
     btn.disabled = true;
     btn.innerText = "Gravando...";
 
+    // =========================================================================
+    // 🚨 CORREÇÃO DO PAYLOAD: FORÇA O ENVIO DA ID DO FLUXO OPERACIONAL
+    // =========================================================================
     const payload = {
         action: "salvarFluxoOcorrenciaCONF",
         romaneio: romaneioVal,
-        oc_motivo: motivo,
+        oc_motivo: "Informe Administrativo", // 🌟 FIX: Forçado fixo para ativar a trava do backend
         oc_descricao: finalDesc,
         oc_token: tokenVal,
         oc_foto_data: "", 
         oc_foto_name: "", 
         oc_itens_remover: JSON.stringify(listaCodigos),
-        tipoFluxo: fluxoFaltanteSelecionado // Passa "Devolver" de forma estática fixa
+        tipoFluxo: "Informar" // 🌟 FIX: Passa Informar para reforçar a barreira de segurança
     };
+    // =========================================================================
+
 
     const formParams = new URLSearchParams();
     Object.keys(payload).forEach(k => formParams.append(k, payload[k]));
