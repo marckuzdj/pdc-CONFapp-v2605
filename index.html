@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v2</h3>
+    <h3>Passagem de Carga | Conferência v3</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -2768,9 +2768,6 @@ function avancarParaAssinaturaParalela() {
     }
 }
 
-// =========================================================================
-// 🌟 PASSO B: MOTOR DE ENVIO PARALELO EXCLUSIVO (SEM INTERCORRENCIA)
-// =========================================================================
 async function enviarDadosFinaisParalelo() {
     const btn = document.querySelector("button[onclick='enviarDadosFinaisParalelo()']");
     const areaAssinatura = document.getElementById("areaAssinatura");
@@ -2793,10 +2790,9 @@ async function enviarDadosFinaisParalelo() {
         const sufixoDispositivo = usarUsb ? "via USB" : "via Mobile";
         const textoObsDefinitivo = `Conferencia Parcial ${sufixoDispositivo}`;
 
-        // 📐 PAYLOAD PARALELO CIRÚRGICO: Propriedade 'intercorrencia' 100% removida.
-        // O backend grava a geolocalização e a assinatura, mas deixa a coluna intacta.
+        // Payload estruturado para o tráfego do formulário
         const payload = {
-            action: "finalizarLoteParalelo", // Aponta para a nova rota que salvamos no .gs
+            action: "finalizarLoteParalelo",
             romaneio: romaneioAtual,
             usuario: document.getElementById("usuario").value,
             codigos: typeof codigosLidos !== 'undefined' ? JSON.stringify(codigosLidos) : "[]",
@@ -2816,7 +2812,7 @@ async function enviarDadosFinaisParalelo() {
             areaAssinatura.style.pointerEvents = "none";
         }
 
-        // Converte para formato de formulário compatível com o seu servidor
+        // 🌟 CORREÇÃO CIRÚRGICA: Envia no formato de formulário aceito pelo seu back-end nativo
         const formParams = new URLSearchParams();
         Object.keys(payload).forEach(key => formParams.append(key, payload[key]));
 
@@ -2829,25 +2825,28 @@ async function enviarDadosFinaisParalelo() {
         const result = await response.json();
 
         if (result.success) {
+            // Remove o romaneio finalizado do cache local para limpar a tela
             if (typeof dadosCompletos !== 'undefined') {
                 dadosCompletos = dadosCompletos.filter(r => r.Romaneio !== romaneioAtual && r.romaneio !== romaneioAtual && r.id !== romaneioAtual);
             }
             if (typeof atualizarComboboxInterface === 'function') atualizarComboboxInterface();
             
-            // 🌟 FRRASE OPERACIONAL REQUISITADA
+            // Exibe o alerta operacional solicitado para o modo parcial com faltas
             alert("⚠️ Intercorrencia lançada para conferencia parcial");
             
-            // Restaura o clique original do botão mestre para o formato padrão do app
+            // Restaura o atributo de clique original do botão mestre para finalizarLote
             if (btn) btn.setAttribute("onclick", "finalizarLote()");
             
+            // 🌟 CIRÚRGICO: Reseta os sinalizadores e limpa completamente os campos e o painel da tela
             loteFechadoComFaltantes = false;
             resetarInterface();
+            
         } else {
             throw new Error(result.error || "Erro no servidor");
         }
 
     } catch (e) {
-        console.error("Erro no envio paralelo:", e);
+        console.error("Erro no envio parcial:", e);
         alert("❌ Falha ao enviar parcial: " + e.message);
         if (btn) {
             btn.disabled = false;
@@ -2859,6 +2858,7 @@ async function enviarDadosFinaisParalelo() {
         }
     }
 }
+
 
     
 </script>
