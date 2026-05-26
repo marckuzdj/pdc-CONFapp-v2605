@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v1</h3>
+    <h3>Passagem de Carga | Conferência v2</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -2653,53 +2653,38 @@ function fecharModalFaltantes() {
     if (modal) { modal.classList.add("hidden"); modal.style.display = "none"; }
 }
 
-// 🌟 MOTOR DE ENVIO: Trava e valida de forma mandatória como Devolver padrão
+// Variable global de contexto (Declare no topo do escopo junto com as outras)
+let loteFechadoComFaltantes = false;
+
 async function enviarOcorrenciaFaltanteFluxo() {
     const motivo = document.getElementById("oc_motivo_faltante").value;
     const descText = document.getElementById("oc_descricao_faltante").value.trim();
-   // const tokenVal = document.getElementById("oc_token_faltante").value.trim();
     const btn = document.getElementById("btnEnviarOcorrenciaFaltante");
     const romaneioVal = document.getElementById("romaneio").value;
 
-    // Validações obrigatórias rígidas do fluxo de Devolução
     if (!motivo) return alert("⚠️ Selecione o motivo da retenção!");
     if (!descText) return alert("⚠️ Digite uma descrição detalhada!");
-  //  if (!tokenVal) return alert("⚠️ Informe o TOKEN DE DEVOLUÇÃO!");
 
-     // const checkboxes = document.querySelectorAll('input[name="oc_itens_faltantes_sel"]:checked');
-    // Localize esta linha dentro de enviarOcorrenciaFaltanteFluxo()
-    // Modifique o seletor mudando de ':checked' para ler diretamente o name, já que todos estão travados ativos
     const checkboxes = document.querySelectorAll('input[name="oc_itens_faltantes_sel"]');
-
-   // if (checkboxes.length === 0) {
-     //   return alert("⚠️ É MANDATÓRIO selecionar ao menos um pedido afetado!");
-    //}
-
     let listaCodigos = [];
     checkboxes.forEach(cb => { if(cb.value) listaCodigos.push(cb.value.toString().trim()); });
 
-    // Monta o encerramento no formato padrão estrutural esperado pelo servidor
     let finalDesc = descText + " - [Pedidos Afetados: " + listaCodigos.join(", ") + "]";
 
     btn.disabled = true;
-    btn.innerText = "Gravando...";
+    btn.innerText = "Gravando Intercorrência...";
 
-    // =========================================================================
-    // 🚨 CORREÇÃO DO PAYLOAD: FORÇA O ENVIO DA ID DO FLUXO OPERACIONAL
-    // =========================================================================
     const payload = {
         action: "salvarFluxoOcorrenciaCONF",
         romaneio: romaneioVal,
-        oc_motivo: "Informe Administrativo", // 🌟 FIX: Forçado fixo para ativar a trava do backend
+        oc_motivo: "Faltantes Administrativos",
         oc_descricao: finalDesc,
-        oc_token: "", // 🌟 MUDADO PARA VAZIO: Remove a necessidade de envio de token//tokenVal,
+        oc_token: "", 
         oc_foto_data: "", 
         oc_foto_name: "", 
         oc_itens_remover: JSON.stringify(listaCodigos),
-        tipoFluxo: "Informar" // 🌟 FIX: Passa Informar para reforçar a barreira de segurança
+        tipoFluxo: "Informar" 
     };
-    // =========================================================================
-
 
     const formParams = new URLSearchParams();
     Object.keys(payload).forEach(k => formParams.append(k, payload[k]));
@@ -2707,20 +2692,34 @@ async function enviarOcorrenciaFaltanteFluxo() {
     try {
         const response = await fetch(urlSheets, { method: 'POST', body: formParams, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
         const result = await response.json();
+        
         if (result.success) {
+            // 🌟 SINALIZADOR ATIVO: Avisa o sistema que a rotina finalizarLote() deve continuar em cascata
+            loteFechadoComFaltantes = true;
+            
+            // 1. Fecha o modal de faltantes limpando a visão do operador
             fecharModalFaltantes();
-            alert("🎉 Lote finalizado com sucesso!");
-            if (typeof resetarInterface === "function") resetarInterface();
+            
+            // 2. CONTINUIDADE DA ROTINA: Ativa a fase de assinatura do conferente de forma nativa
+            const btnFinalizarOriginal = document.querySelector("button[onclick='finalizarLote()']") || document.getElementById("btnFinalizarLote");
+            const areaAssinaturaOriginal = document.getElementById("areaAssinatura");
+            
+            if (typeof prepararFaseAssinatura === "function") {
+                await prepararFaseAssinatura(btnFinalizarOriginal, areaAssinaturaOriginal);
+            }
+            
+            console.log("🔗 Intercorrência registrada! Liberando a esteira para assinatura, GPS e finalização.");
         } else {
-            alert("❌ Erro no servidor: " + result.error);
+            alert("❌ Erro ao registrar intercorrência inicial: " + result.error);
         }
     } catch(err) {
-        alert("❌ Falha crítica: " + err.message);
+        alert("❌ Falha na comunicação: " + err.message);
     } finally {
         btn.disabled = false; 
         btn.innerText = "Enviar";
     }
 }
+
 
 
 // 🌟 MONITORAMENTO DINÂMICO DOS MOTIVOS DO NOVO MODAL
