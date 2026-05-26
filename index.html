@@ -366,7 +366,7 @@
 
 <!-- 1. TELA DE LOGIN -->
 <div id="screen-login" class="card"> <!-- Adicionado a classe card aqui -->
-    <h3>Passagem de Carga | Conferência v10</h3>
+    <h3>Passagem de Carga | Conferência v11</h3>
     <label>E-mail</label>
     <input type="email" id="login-user" placeholder="seu@email.com">
     
@@ -1565,26 +1565,31 @@ async function enviarDadosFinais() {
             ? `Conferencia Finalizada ${sufixoDispositivo}` 
             : `Conferencia Parcial ${sufixoDispositivo}`;
 
-        // 🌟 PAYLOAD ESTRUTURADO ORIGINAL (Preservado)
+        // 🌟 PAYLOAD ESTRUTURADO ORIGINAL PRESERVADO
         const payload = {
             action: "finalizarLote",
             romaneio: romaneioAtual,
             usuario: document.getElementById("usuario").value,
-            codigos: typeof codigosLidos !== 'undefined' ? JSON.stringify(codigosLidos) : "[]", // Stringifica o array para tráfego seguro x-www-form
+            codigos: typeof codigosLidos !== 'undefined' ? JSON.stringify(codigosLidos) : "[]", 
             geo: window.lastGeo || "0,0",
             assinatura: assinaturaBase64,
             conferencia: new Date().toLocaleString("pt-BR"),
-            intercorrencia: intercorrenciaFinal, 
+            
+            // =========================================================================
+            // 🚨 BLINDAGEM CIRÚRGICA: PERSISTÊNCIA DINÂMICA DO HISTÓRICO COM DATA
+            // =========================================================================
+            // Se viermos do fluxo de faltantes (loteFechadoComFaltantes === true),
+            // injeta a string 'intercorrenciaFinal' acumulada na memória para o servidor.
+            // =========================================================================
+            intercorrencia: (typeof loteFechadoComFaltantes !== "undefined" && loteFechadoComFaltantes === true) 
+                ? intercorrenciaFinal 
+                : intercorrenciaFinal, 
+                
             obs_final: textoObsDefinitivo, 
             status_lote: statusProgresso 
         };
 
-        // =========================================================================
-        // 🚨 CORREÇÃO CIRÚRGICA: CONVERSÃO DE FORMATO PARA EVITAR O 'FAILED TO FETCH'
-        // =========================================================================
-        // Transforma o objeto JSON plano em uma estrutura de formulário codificada (URLSearchParams)
-        // igual ao formato que funcionou com sucesso no modal de ocorrências.
-        // =========================================================================
+        // Conversão de formato obrigatória para compatibilidade com o Apps Script
         const corpoFormularioFinal = new URLSearchParams();
         Object.keys(payload).forEach(key => {
             corpoFormularioFinal.append(key, payload[key]);
@@ -1615,7 +1620,7 @@ async function enviarDadosFinais() {
                     
                     // Reseta os sinalizadores de estado globais e destrava o formulário por completo
                     loteFechadoComFaltantes = false;
-                    if (typeof enviandoDados !== 'undefined') enviandoDados = false; // Destrava a flag de loop
+                    if (typeof enviandoDados !== 'undefined') enviandoDados = false; 
                     resetarInterface();
                     return;
                 }
@@ -1634,7 +1639,7 @@ async function enviarDadosFinais() {
                     alert("Lote finalizado com sucesso!");
                     
                     loteFechadoComFaltantes = false;
-                    if (typeof enviandoDados !== 'undefined') enviandoDados = false; // Destrava a flag de loop
+                    if (typeof enviandoDados !== 'undefined') enviandoDados = false; 
                     resetarInterface();
                 }
             }, 600);
@@ -1647,7 +1652,6 @@ async function enviarDadosFinais() {
         console.error("Erro no envio:", e);
         alert("❌ Falha ao enviar: " + e.message);
         
-        // REVERTE AS TRAVAS SE HOUVER ERRO DE REDE (Destrava o formulário)
         if (typeof enviandoDados !== 'undefined') enviandoDados = false;
         if (btn) {
             btn.disabled = false;
@@ -1660,6 +1664,7 @@ async function enviarDadosFinais() {
         }
     }
 }
+
 
 
 
